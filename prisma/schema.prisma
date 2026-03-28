@@ -8,24 +8,60 @@ datasource db {
 }
 
 model User {
-  id        String   @id @default(uuid())
-  email     String   @unique
-  password  String
-  createdAt DateTime @default(now())
-  incidents Incident[]
-  contacts  Contact[]
-  sosLogs   SOSLog[]
+  id           String        @id @default(uuid())
+  email        String        @unique
+  password     String
+  createdAt    DateTime      @default(now())
+  incidents    Incident[]
+  contacts     Contact[]
+  sosLogs      SOSLog[]
+  aiInsights   AIInsight[]
+  deviceTokens DeviceToken[]
 }
 
 model Incident {
-  id        String   @id @default(uuid())
-  userId    String
-  type      String
-  description String
-  timestamp DateTime
-  evidenceHash String
+  id               String      @id @default(uuid())
+  userId           String
+  type             String
+  encryptedText    String?
   encryptedFileUrl String?
-  user User @relation(fields: [userId], references: [id])
+  evidenceHash     String
+  evidenceMimeType String?
+  encryptionMeta   Json?
+  timestamp        DateTime    @default(now())
+
+  aiCategory String?
+  aiWho      String?
+  aiWhen     String?
+  aiType     String?
+  aiSeverity Int?
+  aiRaw      Json?
+
+  createdAt DateTime @default(now())
+
+  user       User        @relation(fields: [userId], references: [id])
+  aiInsights AIInsight[]
+
+  @@index([userId, timestamp])
+  @@index([userId, type])
+}
+
+model AIInsight {
+  id              String   @id @default(uuid())
+  userId          String
+  incidentId      String?
+  riskLevel       String
+  legalSummary    String
+  repeatedOffender String?
+  escalation      Boolean  @default(false)
+  confidenceScore Float?
+  createdAt       DateTime @default(now())
+
+  user     User      @relation(fields: [userId], references: [id])
+  incident Incident? @relation(fields: [incidentId], references: [id])
+
+  @@index([userId, createdAt])
+  @@index([incidentId])
 }
 
 model Contact {
@@ -34,13 +70,42 @@ model Contact {
   name     String
   phone    String
   priority Int
-  user User @relation(fields: [userId], references: [id])
+  user     User   @relation(fields: [userId], references: [id])
 }
 
 model SOSLog {
-  id String @id @default(uuid())
-  userId String
-  triggeredAt DateTime @default(now())
-  location String
+  id                String   @id @default(uuid())
+  userId            String
+  triggeredAt       DateTime @default(now())
+  location          String
+  encryptedAudioUrl String?
+  encryptionMeta    Json?
+  alertStatus       String   @default("pending")
+  contactsNotified  Int      @default(0)
+  retryCount        Int      @default(0)
+
   user User @relation(fields: [userId], references: [id])
+
+  @@index([userId, triggeredAt])
+}
+
+model RequestNonce {
+  id        String   @id @default(uuid())
+  nonce     String   @unique
+  userId    String
+  createdAt DateTime @default(now())
+
+  @@index([userId, createdAt])
+}
+
+model DeviceToken {
+  id        String   @id @default(uuid())
+  userId    String
+  token     String   @unique
+  platform  String
+  createdAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id])
+
+  @@index([userId])
 }

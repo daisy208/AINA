@@ -1,23 +1,45 @@
 const bcrypt = require('bcrypt');
 const jwt = require('jsonwebtoken');
 const { PrismaClient } = require('@prisma/client');
+const asyncHandler = require('../utils/asyncHandler');
+
 const prisma = new PrismaClient();
 
-exports.register = async (req, res) => {
+exports.register = asyncHandler(async (req, res) => {
   const { email, password } = req.body;
-  const hash = await bcrypt.hash(password, 10);
-  const user = await prisma.user.create({ data: { email, password: hash } });
-  res.json(user);
-};
 
-exports.login = async (req, res) => {
+  if (!email || !password) {
+    res.status(400);
+    throw new Error('email and password are required');
+  }
+
+  const existing = await prisma.user.findUnique({ where: { email } });
+  if (existing) {
+    res.status(409);
+    throw new Error('User already exists');
+  }
+
+  const hash = await bcrypt.hash(password, 12);
+  const user = await prisma.user.create({ data: { email, password: hash } });
+
+  res.status(201).json({ id: user.id, email: user.email, createdAt: user.createdAt });
+});
+
+exports.login = asyncHandler(async (req, res) => {
   const { email, password } = req.body;
   const user = await prisma.user.findUnique({ where: { email } });
-  if (!user) return res.status(404).json({ message: "User not found" });
+
+  if (!user) {
+    res.status(404);
+    throw new Error('User not found');
+  }
 
   const valid = await bcrypt.compare(password, user.password);
-  if (!valid) return res.status(401).json({ message: "Invalid password" });
+  if (!valid) {
+    res.status(401);
+    throw new Error('Invalid password');
+  }
 
-  const token = jwt.sign({ id: user.id }, process.env.JWT_SECRET);
+  const token = jwt.sign({ id: user.id }, process.env.JWT_SECRET, { expiresIn: '7d' });
   res.json({ token });
-};
+});
