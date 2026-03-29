@@ -1,4 +1,4 @@
-# AINA – Women Safety & Legal Evidence App (Production-Ready 100%)
+# AINA – Women Safety & Legal Evidence App 
 
 AINA is now structured as a mission-critical, privacy-first safety platform:
 - end-to-end encrypted evidence lifecycle
