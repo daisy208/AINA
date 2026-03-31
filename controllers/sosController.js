@@ -1,7 +1,9 @@
 const { PrismaClient } = require('@prisma/client');
+const crypto = require('crypto');
 const asyncHandler = require('../utils/asyncHandler');
 const { notifyTrustedContacts } = require('../services/notificationService');
 const { uploadEncryptedFile } = require('../services/storageService');
+const { emitEvent } = require('../services/realtimeService');
 
 const prisma = new PrismaClient();
 
@@ -38,6 +40,25 @@ exports.triggerSOS = asyncHandler(async (req, res) => {
       retryCount
     }
   });
+
+  const [lat, lng] = String(location).split(',').map(Number);
+  await prisma.incident.create({
+    data: {
+      userId: req.user.id,
+      type: 'threat',
+      encryptedText: encryptedAudioBase64 || 'encrypted-sos-trigger',
+      evidenceHash: crypto.createHash('sha256').update(encryptedAudioBase64 || location).digest('hex'),
+      encryptionMeta,
+      aiCategory: 'threat',
+      aiType: 'threat',
+      aiSeverity: 9,
+      latitude: Number.isFinite(lat) ? lat : null,
+      longitude: Number.isFinite(lng) ? lng : null,
+      timestamp: new Date()
+    }
+  });
+
+  emitEvent('sos:triggered', { location, alertStatus, contactsNotified: notifications.length });
 
   res.json({ message: 'SOS triggered', log, notifications });
 });

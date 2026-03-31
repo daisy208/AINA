@@ -1,5 +1,5 @@
 const router = require('express').Router();
-const auth = require('../middleware/authMiddleware');
+const auth = require('../middlewares/authMiddleware');
 const { getSummary, exportJsonReport, exportPdfReport } = require('../controllers/reportController');
 
 router.get('/summary', auth, getSummary);

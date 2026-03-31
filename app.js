@@ -6,9 +6,11 @@ const rateLimit = require('express-rate-limit');
 require('dotenv').config();
 
 const logger = require('./services/logger');
+const sanitizeInput = require('./middleware/sanitizeInput');
 const { notFound, errorHandler } = require('./middleware/errorMiddleware');
 
 const app = express();
+app.set('trust proxy', 1);
 
 const allowedOrigins = (process.env.CORS_ORIGIN || 'http://localhost:8081,http://localhost:19006')
   .split(',')
@@ -36,6 +38,7 @@ app.use(cors({
 }));
 
 app.use(express.json({ limit: '10mb' }));
+app.use(sanitizeInput);
 
 app.use((req, res, next) => {
   logger.info('incoming_request', { method: req.method, url: req.originalUrl, ip: req.ip });
@@ -52,6 +55,8 @@ app.use('/contacts', require('./routes/contactRoutes'));
 app.use('/sos', require('./routes/sosRoutes'));
 app.use('/report', require('./routes/reportRoutes'));
 app.use('/notifications', require('./routes/notificationRoutes'));
+app.use('/ai', require('./routes/aiRoutes'));
+app.use('/incidents', require('./routes/incidentsRoutes'));
 
 app.use(notFound);
 app.use(errorHandler);

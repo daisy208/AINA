@@ -29,6 +29,8 @@ model Incident {
   evidenceMimeType String?
   encryptionMeta   Json?
   timestamp        DateTime    @default(now())
+  latitude         Float?
+  longitude        Float?
 
   aiCategory String?
   aiWho      String?

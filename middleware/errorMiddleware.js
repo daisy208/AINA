@@ -17,7 +17,11 @@ function errorHandler(err, req, res, next) {
   });
 
   res.status(statusCode).json({
-    message: err.message || 'Internal server error',
+    success: false,
+    error: {
+      message: err.message || 'Internal server error',
+      code: statusCode
+    },
     ...(process.env.NODE_ENV !== 'production' ? { stack: err.stack } : {})
   });
 }

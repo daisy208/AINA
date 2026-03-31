@@ -5,13 +5,20 @@ const asyncHandler = require('../utils/asyncHandler');
 
 const prisma = new PrismaClient();
 
+function buildToken(userId) {
+  return jwt.sign(
+    { sub: userId, type: 'access' },
+    process.env.JWT_SECRET,
+    {
+      expiresIn: process.env.JWT_EXPIRES_IN || '7d',
+      issuer: process.env.JWT_ISSUER || 'aina-api',
+      audience: process.env.JWT_AUDIENCE || 'aina-mobile'
+    }
+  );
+}
+
 exports.register = asyncHandler(async (req, res) => {
   const { email, password } = req.body;
-
-  if (!email || !password) {
-    res.status(400);
-    throw new Error('email and password are required');
-  }
 
   const existing = await prisma.user.findUnique({ where: { email } });
   if (existing) {
@@ -30,16 +37,16 @@ exports.login = asyncHandler(async (req, res) => {
   const user = await prisma.user.findUnique({ where: { email } });
 
   if (!user) {
-    res.status(404);
-    throw new Error('User not found');
+    res.status(401);
+    throw new Error('Invalid credentials');
   }
 
   const valid = await bcrypt.compare(password, user.password);
   if (!valid) {
     res.status(401);
-    throw new Error('Invalid password');
+    throw new Error('Invalid credentials');
   }
 
-  const token = jwt.sign({ id: user.id }, process.env.JWT_SECRET, { expiresIn: '7d' });
-  res.json({ token });
+  const token = buildToken(user.id);
+  res.json({ token, tokenType: 'Bearer', expiresIn: process.env.JWT_EXPIRES_IN || '7d' });
 });
