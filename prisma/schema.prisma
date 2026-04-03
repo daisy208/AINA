@@ -10,85 +10,258 @@ datasource db {
 model User {
   id           String        @id @default(uuid())
   email        String        @unique
+  firstName    String?
+  lastName     String?
   password     String
+  phoneNumber  String?
+  profileImage String?
+  isVerified   Boolean       @default(false)
+  status       String        @default("active")
+  
   createdAt    DateTime      @default(now())
-  incidents    Incident[]
-  contacts     Contact[]
-  sosLogs      SOSLog[]
-  aiInsights   AIInsight[]
-  deviceTokens DeviceToken[]
+  updatedAt    DateTime      @updatedAt
+
+  incidents       Incident[]
+  contacts        Contact[]
+  sos             SOS[]
+  alerts          Alert[]
+  aiInsights      AIInsight[]
+  deviceTokens    DeviceToken[]
+  notifications   Notification[]
+  reports         Report[]
+  refreshTokens   RefreshToken[]
+  
+  @@index([email])
+  @@index([status])
+  @@index([createdAt])
+}
+
+model Location {
+  id          String      @id @default(uuid())
+  address     String?
+  city        String?
+  state       String?
+  country     String?
+  zipCode     String?
+  latitude    Float       @db.DoublePrecision
+  longitude   Float       @db.DoublePrecision
+  accuracy    Float?
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @updatedAt
+
+  incidents   Incident[]
+  sosLogs     SOSLog[]
+  alerts      Alert[]
+
+  @@index([latitude, longitude])
+  @@index([city])
 }
 
 model Incident {
   id               String      @id @default(uuid())
   userId           String
-  type             String
+  locationId       String?
+
+  // Core incident data
+  type             String      // Crime category: theft, assault, accident, etc
+  description      String?
+  severity         String      @default("medium")  // low, medium, high, critical
+  category         String?     // Sub-category for classification
+  status           String      @default("reported") // reported, investigating, resolved
+  
+  // Evidence & encryption
   encryptedText    String?
   encryptedFileUrl String?
   evidenceHash     String
   evidenceMimeType String?
   encryptionMeta   Json?
+  
+  // Geospatial
+  latitude         Float?      @db.DoublePrecision
+  longitude        Float?      @db.DoublePrecision
+  accuracy         Float?
+
+  // Timestamps
   timestamp        DateTime    @default(now())
-  latitude         Float?
-  longitude        Float?
+  createdAt        DateTime    @default(now())
+  updatedAt        DateTime    @updatedAt
 
-  aiCategory String?
-  aiWho      String?
-  aiWhen     String?
-  aiType     String?
-  aiSeverity Int?
-  aiRaw      Json?
-
-  createdAt DateTime @default(now())
-
-  user       User        @relation(fields: [userId], references: [id])
-  aiInsights AIInsight[]
+  // AI Analysis
+  aiCategory       String?
+  aiWho            String?
+  aiWhen           String?
+  aiType           String?
+  aiSeverity       Int?
+  riskScore        Float?      @default(0.0)
+  aiRaw            Json?
+  
+  // Relations
+  user             User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  location         Location?   @relation(fields: [locationId], references: [id])
+  aiInsights       AIInsight[]
+  alerts           Alert[]
+  reports          Report[]
 
   @@index([userId, timestamp])
   @@index([userId, type])
+  @@index([userId, status])
+  @@index([severity])
+  @@index([status])
+  @@index([riskScore])
+  @@index([latitude, longitude])
+  @@index([timestamp])
+}
+
+model Alert {
+  id              String      @id @default(uuid())
+  userId          String?
+  incidentId      String
+  locationId      String?
+  
+  title           String
+  message         String
+  alertType       String      // nearby_incident, sos_alert, pattern_detection
+  severity        String      @default("medium")
+  radius          Float?      // in meters, for proximity alerts
+  status          String      @default("active") // active, resolved, dismissed
+  
+  createdAt       DateTime    @default(now())
+  resolvedAt      DateTime?
+  updatedAt       DateTime    @updatedAt
+  
+  user            User?       @relation(fields: [userId], references: [id], onDelete: SetNull)
+  incident        Incident    @relation(fields: [incidentId], references: [id], onDelete: Cascade)
+  location        Location?   @relation(fields: [locationId], references: [id])
+  
+  @@index([userId])
+  @@index([incidentId])
+  @@index([severity])
+  @@index([status])
+  @@index([createdAt])
 }
 
 model AIInsight {
   id              String   @id @default(uuid())
   userId          String
   incidentId      String?
+
   riskLevel       String
   legalSummary    String
   repeatedOffender String?
   escalation      Boolean  @default(false)
-  confidenceScore Float?
+  confidenceScore Float?   @default(0.0)
+  
+  // Pattern detection
+  patternType     String?  // escalation_pattern, hotspot_cluster, etc
+  patternMetadata Json?
+  
+  // Risk analysis
+  riskFactors     String[]
+  recommendations String[]
+  
   createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
 
-  user     User      @relation(fields: [userId], references: [id])
-  incident Incident? @relation(fields: [incidentId], references: [id])
+  user            User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  incident        Incident? @relation(fields: [incidentId], references: [id], onDelete: SetNull)
 
   @@index([userId, createdAt])
   @@index([incidentId])
+  @@index([escalation])
+}
+
+model SOS {
+  id              String   @id @default(uuid())
+  userId          String
+  locationId      String?
+
+  // SOS specific
+  status          String   @default("pending") // pending, activated, cancelled, resolved
+  latitude        Float?   @db.DoublePrecision
+  longitude       Float?   @db.DoublePrecision
+  accuracy        Float?
+  
+  // Audio/Evidence
+  encryptedAudioUrl String?
+  encryptionMeta  Json?
+  audioHash       String?
+  
+  // Notifications
+  contactsNotified Int      @default(0)
+  retryCount      Int      @default(0)
+  
+  // Timestamps
+  triggeredAt     DateTime @default(now())
+  resolvedAt      DateTime?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+  
+  user            User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  location        Location? @relation(fields: [locationId], references: [id])
+  
+  @@index([userId, triggeredAt])
+  @@index([status])
+  @@index([triggeredAt])
 }
 
 model Contact {
-  id       String @id @default(uuid())
+  id       String  @id @default(uuid())
   userId   String
   name     String
   phone    String
-  priority Int
-  user     User   @relation(fields: [userId], references: [id])
+  email    String?
+  priority Int     @default(1)
+  
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  
+  user     User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  @@index([userId])
 }
 
-model SOSLog {
-  id                String   @id @default(uuid())
-  userId            String
-  triggeredAt       DateTime @default(now())
-  location          String
-  encryptedAudioUrl String?
-  encryptionMeta    Json?
-  alertStatus       String   @default("pending")
-  contactsNotified  Int      @default(0)
-  retryCount        Int      @default(0)
+model Notification {
+  id          String  @id @default(uuid())
+  userId      String
+  
+  title       String
+  message     String
+  type        String  // incident_alert, sos_broadcast, pattern_alert
+  read        Boolean @default(false)
+  deepLink    String?
+  metadata    Json?
+  
+  sentAt      DateTime @default(now())
+  readAt      DateTime?
+  createdAt   DateTime @default(now())
+  
+  user        User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  @@index([userId, read])
+  @@index([createdAt])
+}
 
-  user User @relation(fields: [userId], references: [id])
-
-  @@index([userId, triggeredAt])
+model Report {
+  id          String  @id @default(uuid())
+  userId      String
+  incidentId  String?
+  
+  reportType  String  // legal_summary, investigation_report, pattern_analysis
+  title       String
+  content     String
+  status      String  @default("draft") // draft, submitted, reviewed
+  
+  // Report metadata
+  generatedAt DateTime @default(now())
+  submittedAt DateTime?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  incident    Incident? @relation(fields: [incidentId], references: [id], onDelete: SetNull)
+  
+  @@index([userId])
+  @@index([status])
 }
 
 model RequestNonce {
@@ -108,7 +281,7 @@ model RefreshToken {
   createdAt   DateTime @default(now())
   expiresAt   DateTime
 
-  user User @relation(fields: [userId], references: [id])
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([userId])
   @@index([expiresAt])
@@ -121,7 +294,7 @@ model DeviceToken {
   platform  String
   createdAt DateTime @default(now())
 
-  user User @relation(fields: [userId], references: [id])
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([userId])
 }

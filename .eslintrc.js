@@ -1,27 +1,36 @@
 module.exports = {
+  parser: '@typescript-eslint/parser',
+  extends: [
+    'eslint:recommended',
+    'plugin:@typescript-eslint/recommended',
+    'prettier',
+  ],
+  plugins: ['@typescript-eslint', 'prettier'],
   env: {
-    browser: true,
-    es2021: true,
     node: true,
+    es2020: true,
     jest: true,
   },
-  extends: ['eslint:recommended', 'plugin:node/recommended', 'prettier'],
   parserOptions: {
-    ecmaVersion: 'latest',
+    ecmaVersion: 2020,
     sourceType: 'module',
-    ecmaFeatures: { jsx: true },
   },
   rules: {
-    'no-console': 'off',
-    'node/no-unsupported-features/es-syntax': ['error', { ignores: ['modules'] }],
-    'node/no-unpublished-require': 'off',
     'prettier/prettier': 'error',
+    '@typescript-eslint/no-unused-vars': [
+      'error',
+      { argsIgnorePattern: '^_' },
+    ],
+    '@typescript-eslint/no-explicit-any': 'warn',
+    '@typescript-eslint/explicit-function-return-types': 'warn',
+    'no-console': 'off',
   },
-  plugins: ['prettier'],
   overrides: [
     {
-      files: ['**/*.js'],
-      excludedFiles: ['components/**/*.js', 'screens/**/*.js', 'App.js'],
+      files: ['*.test.ts'],
+      rules: {
+        '@typescript-eslint/no-explicit-any': 'off',
+      },
     },
   ],
 };
